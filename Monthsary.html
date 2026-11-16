@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>For You</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 40%, #38155f 0%, #1b0c40 60%, #0d0628 100%);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="A navy heart filled with I love you in many languages, with the message Happy 1st Monthsary My Love, under a magical twilight sky"></canvas>
+
+<script>
+/*
+  Happy Monthsary - Heart of "I love you"
+  ---------------------------------------
+  1. A hollow glowing heart draws itself from the bottom tip.
+  2. It slowly fills with "I love you" in many languages.
+  3. A smaller heart draws inside it with a little message.
+  4. In the middle, a big "Happy 1st Monthsary My Love" appears.
+  Behind it all: a magical twilight sky with drifting glows, twinkling
+  stars, fairy dust, floating bokeh lights and shooting stars.
+
+  Click / tap / SPACE / R = replay
+*/
+
+// ----------------------------- settings ------------------------------------
+const W = 1000, H = 720;                  // design size of the heart scene
+
+const OUT_S = 21.5, OUT_O = [500, 292];   // outer heart: scale, origin
+const IN_S = 12.5,  IN_O = [500, 305];    // inner heart: scale, origin
+const OUT_MARGIN = 14, IN_MARGIN = 16;    // keep words away from the lines
+
+const ROW_H = 34;                         // vertical space between rows of words
+const MIN_GAP = 28;                       // minimum space between words
+const FONT_SIZE = 16;
+
+// timeline (seconds)
+const T_OUTER = [0.3, 3.4];               // outer heart draws itself
+const T_INNER = [3.2, 5.2];               // inner heart draws itself
+const T_WORDS0 = 3.4, T_WORDS_SPAN = 7.5;
+const T_MSG0 = 5.4, T_MSG_STEP = 0.8;     // message lines fade in one by one
+const T_TITLE = 12.6;                     // big title fades in
+const T_HEARTS = 14.5;                    // little hearts start floating
+
+const MESSAGE = ["I love you,",
+                 "You're the best thing that ever happened to me"];
+const MSG_Y0 = 364;                       // first message line
+const MSG_LINE_H = 22;                    // distance between message lines
+const MSG_PAD = 20;                       // space kept between text and heart line
+
+const TITLE = [["Happy 1st Monthsary", 38, 268], ["My Love", 56, 316]];
+const TITLE_COLOR = [0, 0, 128];          // navy blue
+
+const WORDS = [
+  "I love you", "Mahal kita", "Te quiero", "Je t'aime", "Ti amo",
+  "Ich liebe dich", "Eu te amo", "Seni seviyorum", "Ik hou van jou",
+  "Jag älskar dig", "Jeg elsker deg", "Jeg elsker dig", "Kocham cię",
+  "Aloha au iā 'oe", "Nakupenda", "Anh yêu em", "Aku cinta kamu",
+  "Saya cintakan awak", "Ay-ayaten ka", "Gihigugma ta ka", "Szeretlek",
+  "Miluji tě", "Rakastan sinua", "Te iubesc", "Σ' αγαπώ",
+  "Я тебя люблю", "Я тебе кохаю", "Обичам те", "Volim te",
+  "Ljubim te", "Ľúbim ťa", "Es tevi mīlu", "Aš tave myliu",
+  "Ma armastan sind", "Tá grá agam duit", "Rwy'n dy garu di",
+  "Ég elska þig", "T'estimo", "Të dua", "Maite zaitut",
+  "Ech hunn dech gäre", "Ek is lief vir jou", "Ngiyakuthanda",
+  "Ndiyakuthanda", "Mi amas vin", "Inħobbok", "Te amo",
+  "Aishiteru", "Saranghae", "Wo ai ni", "Ngo oi nei", "Chan rak khun",
+  "Mujhe tumse pyaar hai", "Ami tomake bhalobashi",
+  "Ma timilai maya garchu", "Naan unnai kaadhalikkiren",
+  "Nenu ninnu premistunnanu", "Uhibbuka", "Dooset daram",
+  "Bi chamd hairtai", "Men seni sevaman", "Mikvarkhar",
+  "Yes kez sirum em", "Ewedihalehu", "Ou te alofa ia te oe",
+  "Au lomani iko", "Aku tresna marang kowe",
+  // --- more languages to fill every space ---
+  "Ani ohev otach", "Ana bahebak", "Ina son ka", "Mo nife re",
+  "Ahuru m gi n'anya", "Ndinokuda", "Waan ku jecelahay", "Tiako ianao",
+  "Kei te aroha ahau ki a koe", "Ofa atu", "Ua here au ia oe",
+  "Palangga ta ka", "Namumutan ta ka", "Kaluguran daka", "Inaru kita",
+  "Khnhom sralanh nak", "Khoi huk jao", "Chit tal", "Mama oyata adarei",
+  "Mujhe tumse mohabbat hai", "Main tainu pyar karda haan",
+  "Hu tane prem karu chu", "Mi tuzyavar prem karto",
+  "Nanu ninna preetisuttene", "Njan ninne snehikkunnu",
+  "Ez ji te hez dikim", "Seni sevirem", "Men seni jaqsy koremin",
+  "Man turo dust medoram", "Ya tabie kakhayu", "Te sakam",
+  "Ti tengu caru", "Querote", "T'aimi", "Ho karout a ran",
+  "Tha gaol agam ort", "Ta graih aym ort", "Eg elski teg",
+  "Ik hald fan dy", "Amo te", "Ikh hob dikh lib",
+  "Abdi cinta ka anjeun", "Mwen renmen w", "Mi stima bo", "Mi love yuh",
+  "Mi laikim yu", "Munakuyki", "Rohayhu", "Nimitztlazohtla",
+  "Ayoo aniinishni", "Maa ngi la beg", "Nalingi yo", "Ndagukunda",
+  "Me do wo", "Kea u rata", "Ke a go rata", "Ndimakukonda",
+  "Sin jaalladha"
+];
+
+const WORD_COLORS = [
+  [170, 200, 255], [200, 180, 255], [225, 235, 255],
+  [150, 180, 240], [255, 200, 220], [255, 235, 190], [255, 255, 255]
+];
+
+const WORD_FONT = `${FONT_SIZE}px "Segoe UI", Arial, "DejaVu Sans", Helvetica, FreeSans, "Liberation Sans", sans-serif`;
+const SERIF = `Georgia, "Palatino Linotype", "Times New Roman", "DejaVu Serif", serif`;
+const MSG_FONT = `italic 14px ${SERIF}`;
+
+// ----------------------------- canvas setup --------------------------------
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+let vw = 0, vh = 0;                       // viewport size (css px)
+let scale = 1, offX = 0, offY = 0;        // places the heart scene in the middle
+
+// ----------------------------- helpers -------------------------------------
+const TAU = Math.PI * 2;
+
+function clamp(v, a = 0, b = 1) { return Math.max(a, Math.min(b, v)); }
+function ease(t) { t = clamp(t); return t * t * (3 - 2 * t); }
+function rgb(c, k = 1) {
+  return `rgb(${Math.min(255, Math.floor(c[0] * k))},${Math.min(255, Math.floor(c[1] * k))},${Math.min(255, Math.floor(c[2] * k))})`;
+}
+function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+// small seeded generator so the sky is always arranged the same way
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hxy(t, s, o) {
+  const x = 16 * Math.sin(t) ** 3;
+  const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t)
+          - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+  return [o[0] + x * s, o[1] - y * s];
+}
+
+function fullPoly(s, o, n = 360) {
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push(hxy(TAU * i / n, s, o));
+  return pts;
+}
+
+// Both sides grow from the bottom tip up to the top dip.
+function sidePts(p, s, o, n = 220) {
+  const k = Math.max(2, Math.floor(p * n));
+  const right = [], left = [];
+  for (let i = 0; i <= k; i++) {
+    right.push(hxy(Math.PI - Math.PI * i / n, s, o));
+    left.push(hxy(Math.PI + Math.PI * i / n, s, o));
+  }
+  return [right, left];
+}
+
+function pathPts(c, pts, close) {
+  c.beginPath();
+  c.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+  if (close) c.closePath();
+}
+
+const OUTLINE_LAYERS = [
+  [11, [0, 0, 50]],
+  [6,  [0, 0, 128]],
+  [3,  [40, 70, 200]],
+  [1,  [170, 195, 255]]
+];
+
+function drawOutline(p, s, o, pulse) {
+  if (p <= 0) return;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (const pts of sidePts(p, s, o)) {
+    for (const [w, col] of OUTLINE_LAYERS) {
+      ctx.strokeStyle = rgb(col, pulse);
+      ctx.lineWidth = w;
+      pathPts(ctx, pts, false);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawSmallHeart(x, y, s, col) {
+  const pts = [];
+  for (let i = 0; i < 24; i++) pts.push(hxy(TAU * i / 24, s, [x, y]));
+  pathPts(ctx, pts, true);
+  ctx.fillStyle = col;
+  ctx.fill();
+}
+
+// ----------------------------- word layout ---------------------------------
+// White = free ring between the two hearts (with margins).
+function buildMask() {
+  const m = document.createElement("canvas");
+  m.width = W; m.height = H;
+  const c = m.getContext("2d", { willReadFrequently: true });
+  c.fillStyle = "#000";
+  c.fillRect(0, 0, W, H);
+
+  const outer = fullPoly(OUT_S, OUT_O);
+  const inner = fullPoly(IN_S, IN_O);
+
+  pathPts(c, outer, true);
+  c.fillStyle = "#fff";
+  c.fill();
+  c.strokeStyle = "#000";
+  c.lineJoin = "round";
+  c.lineWidth = OUT_MARGIN * 2;
+  pathPts(c, outer, true);
+  c.stroke();
+  c.fillStyle = "#000";
+  for (const p of outer) { c.beginPath(); c.arc(p[0], p[1], OUT_MARGIN, 0, TAU); c.fill(); }
+
+  pathPts(c, inner, true);
+  c.fillStyle = "#000";
+  c.fill();
+  c.lineWidth = IN_MARGIN * 2;
+  pathPts(c, inner, true);
+  c.stroke();
+  for (const p of inner) { c.beginPath(); c.arc(p[0], p[1], IN_MARGIN, 0, TAU); c.fill(); }
+
+  return c.getImageData(0, 0, W, H).data;
+}
+
+function isFree(mask, x, y) {
+  if (x < 0 || x >= W || y - 9 < 0 || y + 9 >= H) return false;
+  return mask[(y * W + x) * 4] > 128 &&
+         mask[((y - 9) * W + x) * 4] > 128 &&
+         mask[((y + 9) * W + x) * 4] > 128;
+}
+
+// Place each language only once, with comfortable spacing.
+function layoutWords(mask) {
+  ctx.font = WORD_FONT;
+  const pool = shuffle(WORDS.slice());
+  const items = [];
+  const top = 35, bot = 660;
+
+  for (let y = top + 24; y < bot - 14; y += ROW_H) {
+    const segs = [];
+    let start = null;
+    for (let x = 0; x < W; x += 2) {
+      const ok = isFree(mask, x, y);
+      if (ok && start === null) {
+        start = x;
+      } else if (!ok && start !== null) {
+        segs.push([start, x]);
+        start = null;
+      }
+    }
+    if (start !== null) segs.push([start, W]);
+
+    for (const [a, b] of segs) {
+      if (b - a < 46) continue;
+      const row = [];
+      let total = 0, tries = 0;
+      while (pool.length && tries < 40) {
+        const idx = Math.floor(Math.random() * pool.length);
+        const text = pool[idx];
+        const w = ctx.measureText(text).width;
+        const need = w + (row.length ? MIN_GAP : 0);
+        if (total + need <= (b - a)) {
+          row.push({ text, w, color: choice(WORD_COLORS) });
+          total += need;
+          pool.splice(idx, 1);
+          tries = 0;
+        } else {
+          tries++;
+        }
+      }
+      if (!row.length) continue;
+
+      const widths = row.reduce((sum, r) => sum + r.w, 0);
+      const gap = row.length > 1 ? Math.min(60, (b - a - widths) / (row.length - 1)) : 0;
+      const used = widths + gap * (row.length - 1);
+      let x = a + (b - a - used) / 2;
+      for (const r of row) {
+        const fracUp = (bot - y) / (bot - top);
+        const tRev = T_WORDS0 + fracUp * T_WORDS_SPAN + Math.random() * 1.0;
+        items.push({ text: r.text, color: rgb(r.color), x, y, t: tRev, phase: Math.random() * 6.28 });
+        x += r.w + gap;
+      }
+    }
+  }
+  return items;
+}
+
+// -------------------------- title / message art ----------------------------
+function buildTitle() {
+  const out = [];
+  const base = rgb(TITLE_COLOR);
+  const halo = "rgb(150,185,255)";
+  const edge = "rgb(245,248,255)";
+  const pad = 14;
+  const res = Math.min(3, DPR * Math.max(1, scale));   // keeps the title sharp when zoomed
+
+  for (const [text, size, cy] of TITLE) {
+    const font = `italic bold ${size}px ${SERIF}`;
+    ctx.font = font;
+    const tw = Math.ceil(ctx.measureText(text).width);
+    const cw = tw + pad * 2;
+    const ch = Math.ceil(size * 1.35) + pad * 2;
+
+    const oc = document.createElement("canvas");
+    oc.width = Math.ceil(cw * res); oc.height = Math.ceil(ch * res);
+    const c = oc.getContext("2d");
+    c.setTransform(res, 0, 0, res, 0, 0);
+    c.font = font;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+
+    for (const [r, color] of [[5, halo], [3, edge]]) {
+      c.fillStyle = color;
+      for (let k = 0; k < 16; k++) {
+        const a = TAU * k / 16;
+        c.fillText(text, cw / 2 + Math.cos(a) * r, ch / 2 + Math.sin(a) * r);
+      }
+    }
+    c.fillStyle = base;
+    c.fillText(text, cw / 2, ch / 2);
+
+    out.push({ canvas: oc, cw, ch, cx: 500, cy });
+  }
+  return out;
+}
+
+// Width of the small (inner) heart at a given height, used to fit the message.
+const INNER_POLY = fullPoly(IN_S, IN_O, 720);
+function innerHalfWidth(y) {
+  let minX = Infinity, maxX = -Infinity;
+  for (let i = 0; i < INNER_POLY.length; i++) {
+    const [x1, y1] = INNER_POLY[i];
+    const [x2, y2] = INNER_POLY[(i + 1) % INNER_POLY.length];
+    if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+      const x = x1 + (y - y1) * (x2 - x1) / (y2 - y1);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+    }
+  }
+  return maxX > minX ? (maxX - minX) / 2 : 0;
+}
+
+// Wraps the message line by line so every line stays inside the small heart.
+function buildMessage() {
+  ctx.font = MSG_FONT;
+  const lines = [];
+  let y = MSG_Y0;
+  for (const para of MESSAGE) {
+    let line = "";
+    for (const word of para.split(" ")) {
+      const test = line ? line + " " + word : word;
+      const half = Math.min(innerHalfWidth(y - 8), innerHalfWidth(y + 8)) - MSG_PAD;
+      if (!line || ctx.measureText(test).width <= half * 2) {
+        line = test;
+      } else {
+        lines.push({ text: line, cx: 500, cy: y });
+        y += MSG_LINE_H;
+        line = word;
+      }
+    }
+    if (line) { lines.push({ text: line, cx: 500, cy: y }); y += MSG_LINE_H; }
+  }
+  lines.forEach((l, i) => { l.t = T_MSG0 + i * T_MSG_STEP; });
+  return lines;
+}
+
+// ------------------------------ magical sky --------------------------------
+function glowSprite(c) {
+  const s = document.createElement("canvas");
+  s.width = s.height = 64;
+  const g = s.getContext("2d");
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, rgba(c, 1));
+  grd.addColorStop(0.25, rgba(c, 0.45));
+  grd.addColorStop(1, rgba(c, 0));
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  return s;
+}
+
+const TINTS = [[255, 255, 255], [255, 215, 235], [200, 220, 255], [255, 235, 200]];
+const SPARK = TINTS.map(glowSprite);
+const BOKEH = [[255, 150, 200], [190, 150, 255], [255, 210, 150], [150, 190, 255]].map(glowSprite);
+
+// slow drifting clouds of light (rose, violet, blue, peach)
+const BLOBS = [
+  { fx: 0.12, fy: 0.22, fr: 0.60, col: [255, 80, 170],  a: 0.22, sp: 1.0, ph: 0.0 },
+  { fx: 0.88, fy: 0.18, fr: 0.55, col: [130, 90, 255],  a: 0.26, sp: 0.8, ph: 1.7 },
+  { fx: 0.80, fy: 0.88, fr: 0.65, col: [255, 110, 150], a: 0.22, sp: 1.1, ph: 3.1 },
+  { fx: 0.18, fy: 0.90, fr: 0.55, col: [70, 140, 255],  a: 0.18, sp: 0.9, ph: 4.4 },
+  { fx: 0.50, fy: 0.46, fr: 0.45, col: [255, 150, 210], a: 0.11, sp: 0.6, ph: 2.2 }  // soft aura behind the heart
+];
+
+let bgBase = null, bgVig = null;
+let stars = [], bokeh = [], dust = [], shoots = [], nextShoot = 0;
+
+function makeBgBase() {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(vw)); c.height = Math.max(1, Math.round(vh));
+  const g = c.getContext("2d");
+  const lg = g.createLinearGradient(0, 0, 0, vh);
+  lg.addColorStop(0.00, "#1b0c40");
+  lg.addColorStop(0.40, "#38155f");
+  lg.addColorStop(0.75, "#5e2072");
+  lg.addColorStop(1.00, "#9a3377");
+  g.fillStyle = lg;
+  g.fillRect(0, 0, vw, vh);
+  return c;
+}
+
+function makeVignette() {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(vw)); c.height = Math.max(1, Math.round(vh));
+  const g = c.getContext("2d");
+  const R = Math.hypot(vw, vh) / 2;
+  const rg = g.createRadialGradient(vw / 2, vh / 2, R * 0.35, vw / 2, vh / 2, R);
+  rg.addColorStop(0, "rgba(8,2,24,0)");
+  rg.addColorStop(1, "rgba(8,2,24,0.55)");
+  g.fillStyle = rg;
+  g.fillRect(0, 0, vw, vh);
+  return c;
+}
+
+function initSky() {
+  const area = vw * vh;
+  const r = mulberry32(5);
+
+  stars = [];
+  const nStars = Math.round(clamp(area / 5500, 120, 380));
+  for (let i = 0; i < nStars; i++) {
+    const big = r() < 0.06;
+    stars.push({
+      x: r() * vw, y: r() * vh,
+      size: big ? 2.2 + r() * 1.6 : 0.6 + r() * 1.1,
+      ph: r() * 6.28, sp: 0.5 + r() * 1.8,
+      tint: Math.floor(r() * TINTS.length), big
+    });
+  }
+
+  bokeh = [];
+  const nBokeh = Math.round(clamp(area / 40000, 10, 30));
+  for (let i = 0; i < nBokeh; i++) {
+    bokeh.push({
+      x: r() * vw, y: r() * vh, r: 12 + r() * 38,
+      vx: (r() - 0.5) * 6, vy: -(6 + r() * 14),
+      a: 0.06 + r() * 0.10, ph: r() * 6.28,
+      spr: Math.floor(r() * BOKEH.length)
+    });
+  }
+
+  dust = [];
+  const nDust = Math.round(clamp(area / 9000, 50, 160));
+  for (let i = 0; i < nDust; i++) {
+    dust.push({
+      x0: r() * vw, y: r() * vh,
+      vy: -(10 + r() * 25), amp: 6 + r() * 22,
+      f: 0.4 + r() * 0.9, ph: r() * 6.28, sp: 0.8 + r() * 2.2,
+      size: 0.8 + r() * 1.6, tint: Math.floor(r() * TINTS.length)
+    });
+  }
+  shoots = [];
+}
+
+function drawBackground(now, dt) {
+  // soft twilight gradient
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.drawImage(bgBase, 0, 0, vw, vh);
+
+  // everything below glows (adds light)
+  ctx.globalCompositeOperation = "lighter";
+
+  // drifting clouds of colored light
+  for (const b of BLOBS) {
+    const R = b.fr * Math.max(vw, vh);
+    const x = (b.fx + 0.05 * Math.sin(now * 0.00011 * b.sp + b.ph)) * vw;
+    const y = (b.fy + 0.05 * Math.cos(now * 0.00009 * b.sp + b.ph * 1.3)) * vh;
+    const a = b.a * (0.85 + 0.15 * Math.sin(now * 0.0004 + b.ph));
+    const g = ctx.createRadialGradient(x, y, 0, x, y, R);
+    g.addColorStop(0, rgba(b.col, a));
+    g.addColorStop(0.5, rgba(b.col, a * 0.4));
+    g.addColorStop(1, rgba(b.col, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, vw, vh);
+  }
+
+  // dreamy vignette keeps the edges deep and the middle bright
+  ctx.globalCompositeOperation = "source-over";
+  ctx.drawImage(bgVig, 0, 0, vw, vh);
+  ctx.globalCompositeOperation = "lighter";
+
+  // twinkling stars
+  for (const s of stars) {
+    const tw = 0.5 + 0.5 * Math.sin(now / 1000 * s.sp + s.ph);
+    const a = 0.25 + 0.75 * tw;
+    if (s.big) {
+      const g = s.size * 7;
+      ctx.globalAlpha = a * 0.8;
+      ctx.drawImage(SPARK[s.tint], s.x - g / 2, s.y - g / 2, g, g);
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = rgb(TINTS[s.tint]);
+      ctx.lineWidth = 1;
+      ctx.lineCap = "butt";
+      const L = s.size * 3.2 * (0.6 + 0.4 * tw);
+      ctx.beginPath();
+      ctx.moveTo(s.x - L, s.y); ctx.lineTo(s.x + L, s.y);
+      ctx.moveTo(s.x, s.y - L); ctx.lineTo(s.x, s.y + L);
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = a;
+      ctx.fillStyle = rgb(TINTS[s.tint]);
+      ctx.fillRect(s.x, s.y, s.size, s.size);
+    }
+  }
+
+  // floating bokeh lights
+  for (const b of bokeh) {
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.y < -b.r) { b.y = vh + b.r; b.x = Math.random() * vw; }
+    ctx.globalAlpha = b.a * (0.7 + 0.3 * Math.sin(now / 1500 + b.ph));
+    ctx.drawImage(BOKEH[b.spr], b.x - b.r, b.y - b.r, b.r * 2, b.r * 2);
+  }
+
+  // fairy dust rising and swaying
+  for (const p of dust) {
+    p.y += p.vy * dt;
+    if (p.y < -10) { p.y = vh + 10; p.x0 = Math.random() * vw; }
+    const x = p.x0 + Math.sin(now / 1000 * p.f + p.ph) * p.amp;
+    const tw = 0.5 + 0.5 * Math.sin(now / 1000 * p.sp + p.ph * 2);
+    const g = p.size * 6;
+    ctx.globalAlpha = 0.25 + 0.6 * tw;
+    ctx.drawImage(SPARK[p.tint], x - g / 2, p.y - g / 2, g, g);
+  }
+
+  // shooting stars
+  if (now > nextShoot) {
+    const ang = Math.PI * (0.78 + Math.random() * 0.08);
+    const sp = 650 + Math.random() * 300;
+    shoots.push({
+      x: vw * (0.35 + 0.65 * Math.random()), y: vh * (0.04 + 0.34 * Math.random()),
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+      life: 0, dur: 0.9 + Math.random() * 0.4
+    });
+    nextShoot = now + 3500 + Math.random() * 5000;
+  }
+  for (const s of shoots) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life += dt;
+    const a = Math.sin(clamp(s.life / s.dur) * Math.PI);
+    const m = Math.hypot(s.vx, s.vy);
+    const len = 150;
+    const tx = s.x - s.vx / m * len, ty = s.y - s.vy / m * len;
+    const g = ctx.createLinearGradient(tx, ty, s.x, s.y);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(1, `rgba(255,240,250,${a})`);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y);
+    ctx.stroke();
+    ctx.globalAlpha = a;
+    ctx.drawImage(SPARK[0], s.x - 14, s.y - 14, 28, 28);
+  }
+  shoots = shoots.filter(s => s.life < s.dur);
+
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+}
+
+// ---------------------------------- main -----------------------------------
+let mask = null, title = null, message = null, items = [], hearts = [];
+let startMs = 0, lastMs = 0;
+
+function resize() {
+  vw = window.innerWidth;
+  vh = window.innerHeight;
+  canvas.width = Math.round(vw * DPR);
+  canvas.height = Math.round(vh * DPR);
+  scale = Math.min(vw / W, vh / H);
+  offX = (vw - W * scale) / 2;
+  offY = (vh - H * scale) / 2;
+  bgBase = makeBgBase();
+  bgVig = makeVignette();
+  initSky();
+  if (mask) title = buildTitle();
+}
+
+function newRun() {
+  items = layoutWords(mask);
+  hearts = [];
+}
+
+function replay() {
+  newRun();
+  startMs = performance.now();
+}
+
+function frame(now) {
+  const dt = Math.min((now - lastMs) / 1000, 0.05);
+  lastMs = now;
+  const t = (now - startMs) / 1000;
+
+  // 1) magical background fills the whole screen
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawBackground(now, dt);
+
+  // 2) the heart scene, centered and scaled to fit
+  ctx.setTransform(DPR * scale, 0, 0, DPR * scale, DPR * offX, DPR * offY);
+
+  // floating little hearts (after the title appears)
+  if (t > T_HEARTS && Math.random() < dt * 3.5) {
+    hearts.push([
+      60 + Math.random() * (W - 120), H + 10,
+      25 + Math.random() * 30, 0.25 + Math.random() * 0.25,
+      choice(WORD_COLORS)
+    ]);
+  }
+  for (const h of hearts) {
+    h[1] -= h[2] * dt;
+    const life = clamp(h[1] / H);
+    drawSmallHeart(h[0], h[1], h[3], rgb(h[4], 0.25 + 0.5 * life));
+  }
+  hearts = hearts.filter(h => h[1] > -20);
+
+  // heart outlines
+  const pulse = t < T_TITLE ? 1.0 : 0.88 + 0.12 * Math.sin((t - T_TITLE) * 3.2);
+  drawOutline(ease((t - T_OUTER[0]) / (T_OUTER[1] - T_OUTER[0])), OUT_S, OUT_O, pulse);
+  drawOutline(ease((t - T_INNER[0]) / (T_INNER[1] - T_INNER[0])), IN_S, IN_O, pulse);
+
+  // words slowly filling the ring
+  ctx.font = WORD_FONT;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  for (const it of items) {
+    const a = clamp((t - it.t) / 0.9);
+    if (a <= 0) continue;
+    let k = ease(a);
+    if (a >= 1) k *= 0.82 + 0.18 * Math.sin(now / 700 + it.phase);
+    ctx.globalAlpha = clamp(k);
+    ctx.fillStyle = it.color;
+    ctx.fillText(it.text, it.x, it.y);
+  }
+  ctx.globalAlpha = 1;
+
+  // message inside the small heart
+  ctx.font = MSG_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgb(200,220,255)";
+  for (const m of message) {
+    const a = ease((t - m.t) / 1.0);
+    if (a > 0) {
+      ctx.globalAlpha = a;
+      ctx.fillText(m.text, m.cx, m.cy);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // big title in the middle
+  let a = ease((t - T_TITLE) / 2.2);
+  if (a > 0) {
+    if (t > T_TITLE + 2.2) a *= 0.92 + 0.08 * Math.sin((t - T_TITLE) * 3.2);
+    ctx.globalAlpha = clamp(a);
+    for (const ti of title) {
+      ctx.drawImage(ti.canvas, ti.cx - ti.cw / 2, ti.cy - ti.ch / 2, ti.cw, ti.ch);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  requestAnimationFrame(frame);
+}
+
+function start() {
+  resize();
+  mask = buildMask();
+  title = buildTitle();
+  message = buildMessage();
+  newRun();
+  startMs = lastMs = performance.now();
+  nextShoot = startMs + 2500;
+  requestAnimationFrame(frame);
+}
+
+// replay: click / tap / SPACE / R
+canvas.addEventListener("pointerdown", replay);
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" || e.key === "r" || e.key === "R") {
+    e.preventDefault();
+    replay();
+  }
+});
+window.addEventListener("resize", resize);
+
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(start);
+</script>
+</body>
+</html>
